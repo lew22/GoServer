@@ -2,6 +2,11 @@
 
 terminal:
 
+Para usar los packages ,activamos los modulos
+
+go env -w GO111MODULE=on
+
+////////////////////////////////////////////////
 go build node.go
 
 node localhost:port
