@@ -2,7 +2,7 @@
 
 terminal:
 
-go build
+go build node.go
 
-go run main.go
+go node localhost:####
 
