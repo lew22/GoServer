@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"./Estructura"
-	"./Persona"
+	"tf.com/events/Estructura"
+	"tf.com/events/Persona"
 )
 
 type Frame struct {
@@ -67,17 +67,46 @@ func main() {
 			}
 		}
 		server()
-		GenerarNodos()
+		//GenerarNodos()
+
 	}
 
 }
 
 //generamos los nodos
-func GenerarNodos() {
-	var info1 *Persona.Info = Persona.NuevaInfo("richard", "garcia", "A")
+// func GenerarNodos() {
+// 	var info1 *Persona.Info = Persona.NuevaInfo("richard", "garcia", "A")
+// 	var lista *Estructura.Lista = Estructura.NuevaLista()
+
+// 	Estructura.Insertar(info1, lista)
+// 	Estructura.Imprimir(lista)
+// }
+
+//decodificar json
+func Decoficacion(data string) {
+	var info1 Persona.Info
+
+	dataB := []byte(data)
+	err := json.Unmarshal(dataB, &info1)
+
+	if err != nil {
+		fmt.Println("Error decodificando:", err)
+	} else {
+		// fmt.Println("Nombre: ", info1.Nombre)
+		// fmt.Println("Apellido: ", info1.Apellido)
+		// fmt.Println("Opcion: ", info1.Opcion)
+		fmt.Println("Decodificacion Exitosa")
+		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion)
+	}
+
+}
+
+func CrearNodo(nombre string, apellido string, opcion string) {
+	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion)
 	var lista *Estructura.Lista = Estructura.NuevaLista()
 
-	Estructura.Insertar(info1, lista)
+	Estructura.Insertar(Ninfo, lista)
+	fmt.Println("Se insertaron los nodos y esta es la estructura")
 	Estructura.Imprimir(lista)
 }
 
@@ -180,6 +209,7 @@ func server() {
 	}
 }
 
+//procesamos al cliente cuando se establece la conexion
 func ProcesarCliente(cn net.Conn) {
 	buffer := make([]byte, 1024)
 	pc, err := cn.Read(buffer)
@@ -188,11 +218,16 @@ func ProcesarCliente(cn net.Conn) {
 		fmt.Println("Oops ocurrio un error:", err.Error())
 	}
 	fmt.Println("Recibimos conexion: ", string(buffer[:pc]))
-	_, err = cn.Write([]byte("Hola, te estanmos respondiendo" + string(buffer[:pc])))
+	_, err = cn.Write([]byte("Hola, te estanmos respondiendo"))
+	//+ string(buffer[:pc])
+
 	if err != nil {
 		fmt.Println("Oops ocurrio un error:", err.Error())
+	} else {
+		Decoficacion(string(buffer[:pc]))
 	}
 	cn.Close()
+
 }
 
 func fauxDispatcher(cn net.Conn) {

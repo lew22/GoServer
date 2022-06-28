@@ -3,9 +3,11 @@ package Estructura
 import (
 	"fmt"
 
-	"../Persona"
+	"tf.com/events/Persona"
 )
 
+//se usa ../ cuando se llama de una carpeta
+// ./ cuando se llama fuera de una carpeta
 type Nodo struct {
 	siguiente *Nodo
 	info      *Persona.Info
@@ -47,9 +49,11 @@ func Imprimir(lista *Lista) {
 	aux := lista.primero
 
 	for aux != nil {
+		fmt.Println("{")
 		fmt.Println("Nombre: ", aux.info.Nombre)
 		fmt.Println("Apellido: ", aux.info.Apellido)
 		fmt.Println("Opcion: ", aux.info.Opcion)
+		fmt.Println("}")
 		aux = aux.siguiente
 	}
 
