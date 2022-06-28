@@ -1,0 +1,40 @@
+
+cd Users/pc/CONCURRENTECANAVAL/sem13
+
+cd CONCURRENTECANAVAL/sem13
+
+%%bash
+go build node.go
+go build starter.go
+
+./node localhost:8000 &
+sleep 1
+
+./starter localhost:8000
+
+////////////////////////////////
+
+node localhost:8000
+node localhost:8001 localhost:8000
+node localhost:8002 localhost:8000
+node localhost:8003 localhost:8000
+node localhost:8004 localhost:8003
+node localhost:8005 localhost:8002 goo
+
+node localhost:8000
+node localhost:8001 localhost:8000
+node localhost:8002 localhost:8000
+node localhost:8003 localhost:8001 goo
+
+test front-end
+////////////////////////////////////
+
+go build node.go
+
+node localhost:8080
+
+
+node (fuente):port (destino):port
+
+node 127.0.0.1:5500 localhost:8000
+
