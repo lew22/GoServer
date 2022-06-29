@@ -96,14 +96,19 @@ func Decoficacion(data string) {
 		// fmt.Println("Apellido: ", info1.Apellido)
 		// fmt.Println("Opcion: ", info1.Opcion)
 		fmt.Println("Decodificacion Exitosa")
-		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion)
+		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion, info1.Metodo)
 	}
 
 }
 
 //creamos los nodos
-func CrearNodo(nombre string, apellido string, opcion string) {
-	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion)
+// func CrearNodo(nombre string, apellido string, opcion string) {
+// 	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion)
+//
+
+func CrearNodo(nombre string, apellido string, opcion string, metodo string) {
+	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion, metodo)
+
 	var lista *Estructura.Lista = Estructura.NuevaLista()
 
 	Estructura.Insertar(Ninfo, lista)

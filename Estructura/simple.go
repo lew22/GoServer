@@ -53,6 +53,7 @@ func Imprimir(lista *Lista) {
 		fmt.Println("Nombre: ", aux.info.Nombre)
 		fmt.Println("Apellido: ", aux.info.Apellido)
 		fmt.Println("Opcion: ", aux.info.Opcion)
+		fmt.Println("Metodo: ", aux.info.Metodo)
 		fmt.Println("}")
 		aux = aux.siguiente
 	}
