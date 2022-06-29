@@ -43,3 +43,7 @@ para usar los packages ,activamos los modulos
 
 go env -w GO111MODULE=on
 
+
+crypt
+///////////////////
+go get golang.org/x/crypto

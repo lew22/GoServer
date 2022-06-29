@@ -10,8 +10,11 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"tf.com/events/Estructura"
 	"tf.com/events/Persona"
+
 )
 
 type Frame struct {
@@ -44,6 +47,8 @@ var (
 )
 
 func main() {
+	var lista *Estructura.Lista = Estructura.NuevaLista()
+
 	rand.Seed(time.Now().UnixNano())
 	if len(os.Args) == 1 {
 		log.Println("Hostname not given")
@@ -66,54 +71,65 @@ func main() {
 				go startConsensus()
 			}
 		}
-		server()
-		//GenerarNodos()
+		server(lista)
 
 	}
 
 }
 
 //generamos los nodos
-// func GenerarNodos() {
-// 	var info1 *Persona.Info = Persona.NuevaInfo("richard", "garcia", "A")
-// 	var lista *Estructura.Lista = Estructura.NuevaLista()
-
+// func IngresarNodos(lista *Estructura.Lista) {
+// 	var info1 *Persona.Info = Persona.NuevaInfo("richard", "garcia", "A","POST")
+// 	var info2 *Persona.Info = Persona.NuevaInfo("richard2", "garcia2", "B","POST")
 // 	Estructura.Insertar(info1, lista)
+// 	Estructura.Insertar(info2, lista)
+
+// 	fmt.Println("Se inserto el nodo y esta es la lista:")
 // 	Estructura.Imprimir(lista)
 // }
 
+
+///hash
+func Hash(data string) {
+	//test := "{Nombre:  test23Apellido:  test23Opcion:  AMetodo:  POST}"
+	test := data
+	fmt.Println("La data es : ", test)
+	testhash := []byte(test)
+	hash, err := bcrypt.GenerateFromPassword(testhash, bcrypt.DefaultCost) //DefaultCost es 10
+	if err != nil {
+		fmt.Println(err)
+	}
+	teststring := string(hash)
+	fmt.Printf("El hash generado a partir de %s es %s\n", test, teststring)
+}
+
 //decodificar json
-func Decoficacion(data string) {
+func Decoficacion(data string,lista *Estructura.Lista) {
 	var info1 Persona.Info
 
 	dataB := []byte(data)
 	err := json.Unmarshal(dataB, &info1)
-
+	//decodificacion de json
 	if err != nil {
-		fmt.Println("Error decodificando:", err)
+		fmt.Println("Error decodificando json :", err)
 	} else {
 		// fmt.Println("Nombre: ", info1.Nombre)
 		// fmt.Println("Apellido: ", info1.Apellido)
 		// fmt.Println("Opcion: ", info1.Opcion)
-		fmt.Println("Decodificacion Exitosa")
-		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion, info1.Metodo)
+		fmt.Println("Decodificacion Json Exitosa:")
+		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion, info1.Metodo,lista)
 	}
 
 }
 
 //creamos los nodos
-// func CrearNodo(nombre string, apellido string, opcion string) {
-// 	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion)
-//
-
-func CrearNodo(nombre string, apellido string, opcion string, metodo string) {
+func CrearNodo(nombre string, apellido string, opcion string, metodo string, lista *Estructura.Lista) {
 	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion, metodo)
-
-	var lista *Estructura.Lista = Estructura.NuevaLista()
 
 	Estructura.Insertar(Ninfo, lista)
 	fmt.Println("Se insertaron los nodos y esta es la estructura")
 	Estructura.Imprimir(lista)
+
 }
 
 func startAgrawalla() {
@@ -196,7 +212,7 @@ func send(remote string, frame Frame, callback func(net.Conn)) bool {
 	}
 }
 
-func server() {
+func server(lista *Estructura.Lista) {
 	if ln, err := net.Listen("tcp", host); err == nil {
 		defer ln.Close()
 		log.Printf("Listening on %s\n", host)
@@ -208,7 +224,7 @@ func server() {
 				log.Printf("%s: cant accept connection.\n", host)
 			}
 			//procesar una conexion
-			go ProcesarCliente(cn)
+			go ProcesarCliente(cn,lista)
 		}
 	} else {
 		log.Printf("Can't listen on %s\n", host)
@@ -216,7 +232,7 @@ func server() {
 }
 
 //procesamos al cliente cuando se establece la conexion
-func ProcesarCliente(cn net.Conn) {
+func ProcesarCliente(cn net.Conn,lista *Estructura.Lista) {
 	buffer := make([]byte, 1024)
 	pc, err := cn.Read(buffer)
 
@@ -230,7 +246,8 @@ func ProcesarCliente(cn net.Conn) {
 	if err != nil {
 		fmt.Println("Oops ocurrio un error:", err.Error())
 	} else {
-		Decoficacion(string(buffer[:pc]))
+		Hash(string(buffer[:pc]))
+		Decoficacion(string(buffer[:pc]),lista)
 	}
 	cn.Close()
 
