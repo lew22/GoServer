@@ -38,7 +38,7 @@ node (fuente):port (destino):port
 
 node 127.0.0.1:5500 localhost:8000
 
-para usar modulos,activamos los modulos
+para usar los packages ,activamos los modulos
 ///////////////////////////////////////////
 
 go env -w GO111MODULE=on

@@ -101,6 +101,7 @@ func Decoficacion(data string) {
 
 }
 
+//creamos los nodos
 func CrearNodo(nombre string, apellido string, opcion string) {
 	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion)
 	var lista *Estructura.Lista = Estructura.NuevaLista()
@@ -218,7 +219,7 @@ func ProcesarCliente(cn net.Conn) {
 		fmt.Println("Oops ocurrio un error:", err.Error())
 	}
 	fmt.Println("Recibimos conexion: ", string(buffer[:pc]))
-	_, err = cn.Write([]byte("Hola, te estanmos respondiendo"))
+	_, err = cn.Write([]byte("Hola, te estamos respondiendo"))
 	//+ string(buffer[:pc])
 
 	if err != nil {
