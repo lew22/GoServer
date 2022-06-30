@@ -1,7 +1,7 @@
 
-cd Users/pc/CONCURRENTECANAVAL/sem13
+cd Users/pc/CONCURRENTECANAVAL/TF
 
-cd CONCURRENTECANAVAL/sem13
+cd CONCURRENTECANAVAL/TF
 
 %%bash
 go build node.go

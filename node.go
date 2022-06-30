@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,12 +11,14 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"tf.com/events/Estructura"
 	"tf.com/events/Persona"
 
 )
+
+// "tf.com/events/Estructura"
+// "tf.com/events/Persona"
+//"golang.org/x/crypto/bcrypt"
 
 type Frame struct {
 	Cmd    string   `json:"cmd"`
@@ -30,9 +33,15 @@ type Info struct {
 	cont     int
 }
 
-type ConsInfo struct {
-	contA int
-	contB int
+type Potato struct {
+	Id   string
+	Desc string
+}
+
+type Block struct {
+	HashPrev string
+	Payload  Potato
+	Hash     string
 }
 
 var (
@@ -40,10 +49,10 @@ var (
 	myNum        int
 	chRemotes    chan []string
 	chInfo       chan Info
-	chCons       chan ConsInfo
-	participants int
+	chCons       chan map[string]int
+	blockChain   chan []Block
 	readyToStart chan bool
-	gotnums      bool
+	participants int
 )
 
 func main() {
@@ -53,118 +62,64 @@ func main() {
 	if len(os.Args) == 1 {
 		log.Println("Hostname not given")
 	} else {
+		host = os.Args[1]
 		chRemotes = make(chan []string, 1)
 		chInfo = make(chan Info, 1)
-		chCons = make(chan ConsInfo, 1)
+		chCons = make(chan map[string]int, 1)
+		blockChain = make(chan []Block, 1)
 		readyToStart = make(chan bool, 1)
 
-		host = os.Args[1]
 		chRemotes <- []string{}
+		chCons <- make(map[string]int)
 		if len(os.Args) >= 3 {
 			connectToNode(os.Args[2])
+			requestFullBlockChain(os.Args[2])
+		} else {
+			genesis := Block{"genesis", Potato{}, ""}
+			hashBlock(&genesis)
+			blockChain <- []Block{genesis}
 		}
 		if len(os.Args) == 4 {
 			switch os.Args[3] {
 			case "agrawalla":
 				go startAgrawalla()
-			case "consensus":
-				go startConsensus()
 			}
 		}
 		server(lista)
-
 	}
-
 }
 
-//generamos los nodos
-// func IngresarNodos(lista *Estructura.Lista) {
-// 	var info1 *Persona.Info = Persona.NuevaInfo("richard", "garcia", "A","POST")
-// 	var info2 *Persona.Info = Persona.NuevaInfo("richard2", "garcia2", "B","POST")
-// 	Estructura.Insertar(info1, lista)
-// 	Estructura.Insertar(info2, lista)
-
-// 	fmt.Println("Se inserto el nodo y esta es la lista:")
-// 	Estructura.Imprimir(lista)
-// }
-
-
-///hash
-func Hash(data string) {
-	//test := "{Nombre:  test23Apellido:  test23Opcion:  AMetodo:  POST}"
-	test := data
-	fmt.Println("La data es : ", test)
-	testhash := []byte(test)
-	hash, err := bcrypt.GenerateFromPassword(testhash, bcrypt.DefaultCost) //DefaultCost es 10
-	if err != nil {
-		fmt.Println(err)
-	}
-	teststring := string(hash)
-	fmt.Printf("El hash generado a partir de %s es %s\n", test, teststring)
+func requestFullBlockChain(remote string) {
+	send(remote, Frame{"blockchain", host, []string{}}, func(cn net.Conn) {
+		dec := json.NewDecoder(cn)
+		var frame Frame
+		dec.Decode(&frame)
+		numBlocks := len(frame.Data) / 4
+		blocks := make([]Block, numBlocks)
+		for i := 0; i < numBlocks; i++ {
+			blocks[i] = Block{
+				frame.Data[i*4],
+				Potato{frame.Data[i*4+1], frame.Data[i*4+2]},
+				frame.Data[i*4+3],
+			}
+		}
+		blockChain <- blocks
+	})
 }
 
-//decodificar json
-func Decoficacion(data string,lista *Estructura.Lista) {
-	var info1 Persona.Info
-
-	dataB := []byte(data)
-	err := json.Unmarshal(dataB, &info1)
-	//decodificacion de json
-	if err != nil {
-		fmt.Println("Error decodificando json :", err)
-	} else {
-		// fmt.Println("Nombre: ", info1.Nombre)
-		// fmt.Println("Apellido: ", info1.Apellido)
-		// fmt.Println("Opcion: ", info1.Opcion)
-		fmt.Println("Decodificacion Json Exitosa:")
-		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion, info1.Metodo,lista)
-	}
-
-}
-
-//creamos los nodos
-func CrearNodo(nombre string, apellido string, opcion string, metodo string, lista *Estructura.Lista) {
-	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion, metodo)
-
-	Estructura.Insertar(Ninfo, lista)
-	fmt.Println("Se insertaron los nodos y esta es la estructura")
-	Estructura.Imprimir(lista)
-
+func hashBlock(block *Block) {
+	data := []byte(fmt.Sprintf("hp:%s\tpl:%s", block.HashPrev, block.Payload))
+	block.Hash = fmt.Sprintf("%x", md5.Sum(data))
 }
 
 func startAgrawalla() {
-	go func() {
-		time.Sleep(5 * time.Second)
-		gotnums = false
-		remotes := <-chRemotes
-		chRemotes <- remotes
-		for _, remote := range remotes {
-			send(remote, Frame{"agrawalla", host, []string{}}, nil)
-		}
-		handleAgrawalla()
-	}()
-}
-func startConsensus() {
+	time.Sleep(3 * time.Second)
 	remotes := <-chRemotes
-	for _, remote := range remotes {
-		log.Printf("%s: sending consensus to %s\n", host, remote)
-		send(remote, Frame{"consensus", host, []string{}}, nil)
-	}
 	chRemotes <- remotes
-	handleConsensus()
-}
-
-func timeOutChecker(seconds int) {
-	count := seconds * 10
-	for i := 0; i < count; i++ {
-		time.Sleep(100 * time.Millisecond)
-		if gotnums {
-			break
-		}
+	for _, remote := range remotes {
+		send(remote, Frame{"agrawalla", host, []string{}}, nil)
 	}
-	if !gotnums {
-		log.Printf("%s: timeout!!", host)
-	}
+	handleAgrawalla()
 }
 
 func connectToNode(remote string) {
@@ -217,22 +172,21 @@ func server(lista *Estructura.Lista) {
 		defer ln.Close()
 		log.Printf("Listening on %s\n", host)
 		for {
-			cn, err := ln.Accept()
-			if err == nil {
+			cn, err := ln.Accept();
+			if  err == nil {
 				go fauxDispatcher(cn)
 			} else {
 				log.Printf("%s: cant accept connection.\n", host)
 			}
-			//procesar una conexion
-			go ProcesarCliente(cn,lista)
+			go ProcesarCliente(cn, lista)
 		}
 	} else {
 		log.Printf("Can't listen on %s\n", host)
 	}
 }
 
-//procesamos al cliente cuando se establece la conexion
-func ProcesarCliente(cn net.Conn,lista *Estructura.Lista) {
+//funcion procesamos al cliente cuando se establece la conexion
+func ProcesarCliente(cn net.Conn, lista *Estructura.Lista) {
 	buffer := make([]byte, 1024)
 	pc, err := cn.Read(buffer)
 
@@ -246,10 +200,53 @@ func ProcesarCliente(cn net.Conn,lista *Estructura.Lista) {
 	if err != nil {
 		fmt.Println("Oops ocurrio un error:", err.Error())
 	} else {
-		Hash(string(buffer[:pc]))
-		Decoficacion(string(buffer[:pc]),lista)
+		//Hash(string(buffer[:pc]))
+		Decoficacion(string(buffer[:pc]), lista)
 	}
 	cn.Close()
+
+}
+
+//hash
+// func Hash(data string) {
+// 	//test := "{Nombre:  test23Apellido:  test23Opcion:  AMetodo:  POST}"
+// 	test := data
+// 	fmt.Println("La data es : ", test)
+// 	testhash := []byte(test)
+// 	hash, err := bcrypt.GenerateFromPassword(testhash, bcrypt.DefaultCost) //DefaultCost es 10
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	teststring := string(hash)
+// 	fmt.Printf("El hash generado a partir de %s es %s\n", test, teststring)
+// }
+
+//funcion decodificar
+func Decoficacion(data string, lista *Estructura.Lista) {
+	var info1 Persona.Info
+
+	dataB := []byte(data)
+	err := json.Unmarshal(dataB, &info1)
+	//decodificacion de json
+	if err != nil {
+		fmt.Println("Error decodificando json :", err)
+	} else {
+		// fmt.Println("Nombre: ", info1.Nombre)
+		// fmt.Println("Apellido: ", info1.Apellido)
+		// fmt.Println("Opcion: ", info1.Opcion)
+		fmt.Println("Decodificacion Json Exitosa:")
+		CrearNodo(info1.Nombre, info1.Apellido, info1.Opcion, info1.Metodo, lista)
+	}
+
+}
+
+// funcion creacion de nodos
+func CrearNodo(nombre string, apellido string, opcion string, metodo string, lista *Estructura.Lista) {
+	var Ninfo *Persona.Info = Persona.NuevaInfo(nombre, apellido, opcion, metodo)
+
+	Estructura.Insertar(Ninfo, lista)
+	fmt.Println("Se insertaron los nodos y esta es la estructura")
+	Estructura.Imprimir(lista)
 
 }
 
@@ -269,12 +266,14 @@ func fauxDispatcher(cn net.Conn) {
 		handleNum(frame)
 	case "start":
 		handleStart()
-	case "consensus":
-		handleConsensus()
+	case "cliRegister":
+		handleCliRegister(frame)
+	case "register":
+		handleRegister(frame)
 	case "vote":
 		handleVote(frame)
-		/*case "potato":
-		handlePotato(frame)*/
+	case "blockchain":
+		handleBlockchain(cn)
 	}
 }
 
@@ -298,7 +297,6 @@ func handleAdd(frame *Frame) {
 }
 func handleAgrawalla() {
 	myNum = rand.Intn(1000000000)
-	go timeOutChecker(10)
 	log.Printf("%s: my number is %d\n", host, myNum)
 	msg := Frame{"num", host, []string{strconv.Itoa(myNum)}}
 	remotes := <-chRemotes
@@ -331,7 +329,6 @@ func handleNum(frame *Frame) {
 			} else {
 				readyToStart <- true
 			}
-			gotnums = true
 		}
 	} else {
 		log.Printf("%s: can't convert %v\n", host, frame)
@@ -341,66 +338,83 @@ func handleStart() {
 	<-readyToStart
 	criticalSection()
 }
-func handleConsensus() {
-	time.Sleep(3 * time.Second)
-	fmt.Print("A o B, elige una: ")
-	var op string
-	fmt.Scanf("%s\n", &op)
-	info := ConsInfo{0, 0}
-	if op == "A" {
-		info.contA++
+func handleCliRegister(frame *Frame) {
+	remotes := <-chRemotes
+	chRemotes <- remotes
+	msg := Frame{"register", host, frame.Data}
+	for _, remote := range remotes {
+		log.Printf("%s: sending REGISTER %s to %s\n", host, frame.Data, remote)
+		send(remote, msg, nil)
+	}
+	addBlock(frame.Data[0], frame.Data[1])
+}
+func handleRegister(frame *Frame) {
+	addBlock(frame.Data[0], frame.Data[1])
+}
+func handleVote(frame *Frame) {
+	otherHash := frame.Data[0]
+	info := <-chCons
+	if count, ok := info[otherHash]; ok {
+		info[otherHash] = count + 1
 	} else {
-		info.contB++
+		info[otherHash] = 1
 	}
 	chCons <- info
+	log.Printf("%s: %s voted %s\n", host, frame.Sender, otherHash)
+	total := 0
+	winner := ""
+	winnerCount := 0
+	for hash, count := range info {
+		total = total + count
+		if count > winnerCount {
+			winnerCount = count
+			winner = hash
+		}
+	}
+	if total == participants {
+		log.Printf("%s: winner: %s\n", host, winner)
+	}
+}
+func handleBlockchain(cn net.Conn) {
+	enc := json.NewEncoder(cn)
+	blocks := <-blockChain
+	blockChain <- blocks
+	numBlocks := len(blocks)
+	frame := Frame{"here you go", host, make([]string, numBlocks*4)}
+	for i := range blocks {
+		frame.Data[i*4] = blocks[i].HashPrev
+		frame.Data[i*4+1] = blocks[i].Payload.Id
+		frame.Data[i*4+2] = blocks[i].Payload.Desc
+		frame.Data[i*4+3] = blocks[i].Hash
+	}
+	enc.Encode(frame)
+}
+
+func addBlock(id, desc string) {
+	blocks := <-blockChain
+	n := len(blocks)
+	newBlock := Block{blocks[n-1].Hash, Potato{id, desc}, ""}
+	hashBlock(&newBlock)
+	blocks = append(blocks, newBlock)
+	blockChain <- blocks
+	consensus(newBlock.Hash)
+}
+
+func consensus(newHash string) {
+	<-chCons
+	info := make(map[string]int)
+	info[newHash] = 1
+	chCons <- info
+
 	remotes := <-chRemotes
 	participants = len(remotes) + 1
 	for _, remote := range remotes {
-		log.Printf("%s: sending %s to %s\n", host, op, remote)
-		send(remote, Frame{"vote", host, []string{op}}, nil)
+		log.Printf("%s: sending %s to %s\n", host, newHash, remote)
+		send(remote, Frame{"vote", host, []string{newHash}}, nil)
 	}
 	chRemotes <- remotes
 }
-func handleVote(frame *Frame) {
-	vote := frame.Data[0]
-	info := <-chCons
-	if vote == "A" {
-		info.contA++
-	} else {
-		info.contB++
-	}
-	chCons <- info
-	log.Printf("%s: got %v\n", host, frame)
-	if info.contA+info.contB == participants {
-		if info.contA > info.contB {
-			log.Printf("%s go A\n", host)
-		} else {
-			log.Printf("%s go B\n", host)
-		}
-	}
-}
 
-/*
-func handlePotato(frame *Frame) {
-	if num, err := strconv.Atoi(frame.Data[0]); err == nil {
-		log.Printf("%s: recibí %d\n", host, num)
-		if num == 0 {
-			log.Printf("%s: perdí\n", host)
-		} else {
-			for len(remotes) > 0 {
-				remote := remotes[rand.Intn(len(remotes))]
-				data := []string{strconv.Itoa(num - 1)}
-				time.Sleep(100 * time.Millisecond)
-				if send(remote, Frame{"potato", host, data}, nil) {
-					break
-				}
-			}
-		}
-	} else {
-		log.Printf("%s: can't convert %s to number\n", host, frame.Data)
-	}
-}
-*/
 func criticalSection() {
 	log.Printf("%s: my time has come!\n", host)
 	info := <-chInfo
@@ -411,18 +425,3 @@ func criticalSection() {
 		log.Printf("%s: I was the last one :(\n", host)
 	}
 }
-
-/*
-func potatoGenerator() {
-	for {
-		time.Sleep(5 * time.Second)
-		for len(remotes) > 0 {
-			remote := remotes[rand.Intn(len(remotes))]
-			data := []string{strconv.Itoa(rand.Intn(20) + 10)}
-			if send(remote, Frame{"potato", host, data}, nil) {
-				break
-			}
-		}
-	}
-}
-*/
